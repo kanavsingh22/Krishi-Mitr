@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import './WeatherWidget.css';
+import React, { useState, useEffect } from "react";
+import "./WeatherWidget.css";
 
 const API_KEY = process.env.REACT_APP_OPENWEATHER_API_KEY;
 
 const WeatherWidget = () => {
   const [weather, setWeather] = useState(null);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,34 +13,34 @@ const WeatherWidget = () => {
       const geocodingUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`;
 
       fetch(geocodingUrl)
-        .then(response => response.json())
-        .then(geoData => {
+        .then((response) => response.json())
+        .then((geoData) => {
           const cityName = geoData.city || "Local Area";
           const placeholderWeather = {
             name: cityName,
             main: { temp: 27.8 },
-            weather: [{ main: 'Clear', description: 'clear sky', icon: '01d' }],
+            weather: [{ main: "Clear", description: "clear sky", icon: "01d" }],
           };
           setWeather(placeholderWeather);
         })
-        .catch(err => setError('Could not determine location name.'))
+        .catch((err) => setError("Could not determine location name."))
         .finally(() => setLoading(false));
     };
 
     const getWeatherData = (lat, lon) => {
       const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric`;
-      
+
       fetch(url)
-        .then(response => {
+        .then((response) => {
           if (response.status === 401) {
-            throw new Error('Unauthorized'); 
+            throw new Error("Unauthorized");
           }
           if (!response.ok) {
-            throw new Error('Service unavailable');
+            throw new Error("Service unavailable");
           }
           return response.json();
         })
-        .then(data => {
+        .then((data) => {
           if (data.cod === 200) {
             setWeather(data);
             setLoading(false);
@@ -48,8 +48,8 @@ const WeatherWidget = () => {
             throw new Error(data.message);
           }
         })
-        .catch(err => {
-          if (err.message === 'Unauthorized') {
+        .catch((err) => {
+          if (err.message === "Unauthorized") {
             getPlaceholderWeatherData(lat, lon);
           } else {
             setError(`Weather service error: ${err.message}`);
@@ -71,7 +71,7 @@ const WeatherWidget = () => {
         { timeout: 10000 }
       );
     } else {
-      setError('Geolocation is not supported.');
+      setError("Geolocation is not supported.");
       setLoading(false);
     }
   }, []);
@@ -83,7 +83,11 @@ const WeatherWidget = () => {
     return <div className="weather-widget error-message">{error}</div>;
   }
   if (!weather) {
-    return <div className="weather-widget error-message">Weather data unavailable.</div>;
+    return (
+      <div className="weather-widget error-message">
+        Weather data unavailable.
+      </div>
+    );
   }
 
   return (
