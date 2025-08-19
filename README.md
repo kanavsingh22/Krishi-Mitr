@@ -6,7 +6,7 @@
 
 **KrishiMitr** is an intelligent, multilingual chatbot designed to be a reliable assistant for Indian farmers. It provides real-time information on crop prices, weather forecasts, and answers a wide range of agricultural questions. The application is built with a resilient architecture that includes an offline mode, making it practical for use in areas with poor connectivity.
 
-![KrishiMitr Screenshot](./krishimitr-screenshot.png) 
+![KrishiMitr Screenshot](./KrishiMitr.png) 
 
 ---
 
