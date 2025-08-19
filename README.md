@@ -1,5 +1,16 @@
 # 🌾 KrishiMitr - Multilingual AI Farming Assistant
 
+---
+
+## 🚀 Live Application
+
+You can access the live, deployed version of KrishiMitr here:
+
+-   **Live Application (Frontend):** **[https://krishimitr-xngl.onrender.com](https://krishimitr-xngl.onrender.com)**
+-   **Backend API Endpoint:** **[https://krishimitr-backend.onrender.com](https://krishimitr-backend.onrender.com)**
+
+---
+
 [![Go Backend](https://img.shields.io/badge/Backend-Go-00ADD8?style=for-the-badge&logo=go)](https://golang.org/)
 [![React Frontend](https://img.shields.io/badge/Frontend-React-61DAFB?style=for-the-badge&logo=react)](https://reactjs.org/)
 [![Google AI](https://img.shields.io/badge/AI%20Model-Google%20Gemini-4285F4?style=for-the-badge&logo=google)](https://aistudio.google.com/)
