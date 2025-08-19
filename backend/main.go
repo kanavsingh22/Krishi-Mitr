@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"
 	"google.golang.org/api/option"
 )
 
@@ -37,27 +37,37 @@ type MarketDataResponse struct {
 }
 
 func initDB() {
-	dbPath := os.Getenv("DATABASE_PATH")
-	if dbPath == "" {
-		dbPath = "./krishimitr.db"
+	connStr := os.Getenv("DATABASE_URL")
+	if connStr == "" {
+		log.Fatal("DATABASE_URL environment variable is not set")
 	}
+
 	var err error
-	db, err = sql.Open("sqlite3", dbPath)
+	db, err = sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
+
+	err = db.Ping()
+	if err != nil {
+		log.Fatalf("Error connecting to the database: %v", err)
+	}
+
 	createTableSQL := `CREATE TABLE IF NOT EXISTS conversations (
-		"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, "query" TEXT, "response" TEXT, "timestamp" DATETIME DEFAULT CURRENT_TIMESTAMP
+		id SERIAL PRIMARY KEY,
+		query TEXT,
+		response TEXT,
+		timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 	);`
 	_, err = db.Exec(createTableSQL)
 	if err != nil {
 		log.Fatalf("Error creating table: %v", err)
 	}
-	log.Println("Database initialized successfully.")
+	log.Println("Database initialized and connected successfully.")
 }
 
 func saveConversation(query, response string) {
-	insertSQL := `INSERT INTO conversations (query, response) VALUES (?, ?)`
+	insertSQL := `INSERT INTO conversations (query, response) VALUES ($1, $2)`
 	_, err := db.Exec(insertSQL, query, response)
 	if err != nil {
 		log.Printf("Error saving conversation: %v", err)
@@ -68,17 +78,27 @@ func saveConversation(query, response string) {
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		allowedOrigin := os.Getenv("FRONTEND_URL")
-		if allowedOrigin == "" {
-			allowedOrigin = "http://localhost:3000"
+		prodOrigin := os.Getenv("FRONTEND_URL")
+
+		incomingOrigin := r.Header.Get("Origin")
+
+		if prodOrigin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", prodOrigin)
+		} else {
+			if incomingOrigin == "https://localhost:3000" || incomingOrigin == "http://localhost:3000" {
+				w.Header().Set("Access-Control-Allow-Origin", incomingOrigin)
+			}
 		}
-		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		// Handle the pre-flight request
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+
 		next.ServeHTTP(w, r)
 	})
 }
@@ -198,7 +218,7 @@ func handleOfflineChat(w http.ResponseWriter, r *http.Request) {
 
 	var storedResponse string
 	searchQuery := "%" + req.Message + "%"
-	err := db.QueryRow("SELECT response FROM conversations WHERE query LIKE ? ORDER BY timestamp DESC LIMIT 1", searchQuery).Scan(&storedResponse)
+	err := db.QueryRow("SELECT response FROM conversations WHERE query LIKE $1 ORDER BY timestamp DESC LIMIT 1", searchQuery).Scan(&storedResponse)
 
 	var finalReply string
 	if err == sql.ErrNoRows {
@@ -220,6 +240,7 @@ func main() {
 	}
 	initDB()
 	defer db.Close()
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -229,7 +250,7 @@ func main() {
 	mux.HandleFunc("/api/chat", handleChat)
 	mux.HandleFunc("/api/chat-offline", handleOfflineChat)
 
-	log.Printf("Backend server starting on port %s", port)
+	fmt.Printf("Backend server starting on port %s\n", port)
 	if err := http.ListenAndServe(":"+port, corsMiddleware(mux)); err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
