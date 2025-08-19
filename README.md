@@ -71,7 +71,7 @@ You will need to acquire the following API keys and place them in the correct en
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/your-username/krishimitr.git
+    git clone https://github.com/kanavsingh22/krishimitr.git
     cd krishimitr
     ```
 
@@ -119,7 +119,7 @@ You will need to acquire the following API keys and place them in the correct en
 2.  **Backend (Go):** Acts as an intelligent orchestrator.
     *   It first checks if the query is for a crop price. If so, it calls the `data.gov.in` API and formats the response.
     *   For all other queries, it forwards the message to the Google Gemini API with a specific system instruction to handle multiple languages.
-    *   In **online mode**, all successful conversations are saved to the local `krishimitr.db` SQLite database.
+    *   In **online mode**, all successful conversations are saved to the local `krishimitr.db` SQLite database which acts a kiosk server later.
     *   In **offline mode**, it searches the SQLite database for a relevant cached answer instead of calling external APIs.
 
 ---
