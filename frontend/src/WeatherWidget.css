@@ -1,0 +1,52 @@
+.weather-widget {
+  position: absolute;
+  top: 15px;
+  left: 15px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 15px;
+  width: 180px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  color: #333;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  z-index: 1000;
+}
+.weather-widget .location {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.weather-widget .main-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+}
+.weather-widget .weather-icon {
+  width: 50px;
+  height: 50px;
+}
+.weather-widget .temperature {
+  font-size: 2.5rem;
+  font-weight: 500;
+}
+.weather-widget .description {
+  text-align: center;
+  font-size: 0.9rem;
+  text-transform: capitalize;
+  margin-top: 5px;
+}
+.weather-widget.error-message {
+  color: #721c24;
+  background: rgba(248, 215, 218, 0.8);
+}
+.error-notice {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  color: #dc3545;
+  font-weight: bold;
+  font-size: 1.2rem;
+  cursor: help;
+}
