@@ -26,9 +26,10 @@ function App() {
   const handleSend = useCallback(async (messageText) => {
     if (!messageText.trim()) return;
     setIsThinking(true);
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8080';
     const endpoint = isOffline ? '/api/chat-offline' : '/api/chat';
     try {
-      const response = await fetch(`http://localhost:8080${endpoint}`, {
+      const response = await fetch(`${backendUrl}${endpoint}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: messageText }),
       });

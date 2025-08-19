@@ -37,8 +37,12 @@ type MarketDataResponse struct {
 }
 
 func initDB() {
+	dbPath := os.Getenv("DATABASE_PATH")
+	if dbPath == "" {
+		dbPath = "./krishimitr.db"
+	}
 	var err error
-	db, err = sql.Open("sqlite3", "./krishimitr.db")
+	db, err = sql.Open("sqlite3", dbPath)
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
@@ -64,7 +68,11 @@ func saveConversation(query, response string) {
 
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		allowedOrigin := os.Getenv("FRONTEND_URL")
+		if allowedOrigin == "" {
+			allowedOrigin = "http://localhost:3000"
+		}
+		w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		if r.Method == "OPTIONS" {
@@ -212,11 +220,17 @@ func main() {
 	}
 	initDB()
 	defer db.Close()
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/chat", handleChat)
 	mux.HandleFunc("/api/chat-offline", handleOfflineChat)
-	fmt.Println("Backend server starting on http://localhost:8080")
-	if err := http.ListenAndServe(":8080", corsMiddleware(mux)); err != nil {
+
+	log.Printf("Backend server starting on port %s", port)
+	if err := http.ListenAndServe(":"+port, corsMiddleware(mux)); err != nil {
 		log.Fatalf("Error starting server: %v", err)
 	}
 }
