@@ -184,7 +184,7 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		}
 		defer client.Close()
 
-		model := client.GenerativeModel("gemini-1.5-flash-latest")
+		model := client.GenerativeModel("gemini-2.5-flash")
 
 		model.SystemInstruction = &genai.Content{
 			Parts: []genai.Part{
