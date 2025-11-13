@@ -18,8 +18,6 @@ import (
 
 var db *sql.DB
 
-// ------------------- Structs -------------------
-
 type ChatRequest struct {
 	Message string `json:"message"`
 }
@@ -40,8 +38,6 @@ type MarketDataRecord struct {
 type MarketDataResponse struct {
 	Records []MarketDataRecord `json:"records"`
 }
-
-// ------------------- DB Setup -------------------
 
 func initDB() {
 	var err error
@@ -76,8 +72,6 @@ func saveConversation(query, response string) {
 	}
 }
 
-// ------------------- CORS -------------------
-
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -91,8 +85,6 @@ func corsMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
-
-// ------------------- Price API -------------------
 
 func getCropPrice(apiKey, commodity string) (string, error) {
 	url := fmt.Sprintf(
@@ -155,8 +147,6 @@ func isPriceQuery(message string) (bool, string) {
 	return false, ""
 }
 
-// ------------------- Chat Handler -------------------
-
 func handleChat(w http.ResponseWriter, r *http.Request) {
 	var req ChatRequest
 	json.NewDecoder(r.Body).Decode(&req)
@@ -179,7 +169,6 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	} else {
 		ctx := context.Background()
 
-		// Support BOTH env variable names (Gemini SDK mismatch fix)
 		apiKey := os.Getenv("GEMINI_API_KEY")
 		if apiKey == "" {
 			apiKey = os.Getenv("GOOGLE_API_KEY")
@@ -195,7 +184,7 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 		}
 		defer client.Close()
 
-		model := client.GenerativeModel("gemini-1.5-flash")
+		model := client.GenerativeModel("gemini-1.5-flash-latest")
 
 		model.SystemInstruction = &genai.Content{
 			Parts: []genai.Part{
@@ -224,8 +213,6 @@ func handleChat(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(ChatResponse{Reply: reply})
 }
 
-// ------------------- Offline Chat -------------------
-
 func handleOfflineChat(w http.ResponseWriter, r *http.Request) {
 	var req ChatRequest
 	json.NewDecoder(r.Body).Decode(&req)
@@ -249,8 +236,6 @@ func handleOfflineChat(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(ChatResponse{Reply: reply})
 }
-
-// ------------------- MAIN -------------------
 
 func main() {
 	// Load .env only on local machine
