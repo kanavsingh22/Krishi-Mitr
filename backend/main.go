@@ -18,12 +18,16 @@ import (
 
 var db *sql.DB
 
+// ------------------- Structs -------------------
+
 type ChatRequest struct {
 	Message string `json:"message"`
 }
+
 type ChatResponse struct {
 	Reply string `json:"reply"`
 }
+
 type MarketDataRecord struct {
 	State      string `json:"state"`
 	Market     string `json:"market"`
@@ -32,64 +36,64 @@ type MarketDataRecord struct {
 	MaxPrice   string `json:"max_price"`
 	ModalPrice string `json:"modal_price"`
 }
+
 type MarketDataResponse struct {
 	Records []MarketDataRecord `json:"records"`
 }
 
-// ----------------------------------------
-// DATABASE SETUP
-// ----------------------------------------
+// ------------------- DB Setup -------------------
+
 func initDB() {
 	var err error
 	db, err = sql.Open("sqlite3", "./krishimitr.db")
 	if err != nil {
 		log.Fatalf("Error opening database: %v", err)
 	}
-	createTableSQL := `CREATE TABLE IF NOT EXISTS conversations (
-		"id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, 
-		"query" TEXT, 
-		"response" TEXT, 
-		"timestamp" DATETIME DEFAULT CURRENT_TIMESTAMP
-	);`
+
+	createTableSQL := `
+	CREATE TABLE IF NOT EXISTS conversations (
+		id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+		query TEXT,
+		response TEXT,
+		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	`
+
 	_, err = db.Exec(createTableSQL)
 	if err != nil {
 		log.Fatalf("Error creating table: %v", err)
 	}
+
 	log.Println("Database initialized successfully.")
 }
 
 func saveConversation(query, response string) {
-	insertSQL := `INSERT INTO conversations (query, response) VALUES (?, ?)`
-	_, err := db.Exec(insertSQL, query, response)
+	_, err := db.Exec(`INSERT INTO conversations (query, response) VALUES (?, ?)`, query, response)
 	if err != nil {
 		log.Printf("Error saving conversation: %v", err)
 	} else {
-		log.Printf("Successfully saved conversation for query: %s", query)
+		log.Printf("Saved conversation: %s", query)
 	}
 }
 
-// ----------------------------------------
-// CORS MIDDLEWARE
-// ----------------------------------------
+// ------------------- CORS -------------------
+
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
-		if r.Method == "OPTIONS" {
+		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-
 		next.ServeHTTP(w, r)
 	})
 }
 
-// ----------------------------------------
-// LIVE MARKET PRICE API
-// ----------------------------------------
+// ------------------- Price API -------------------
+
 func getCropPrice(apiKey, commodity string) (string, error) {
 	url := fmt.Sprintf(
 		"https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070?api-key=%s&format=json&limit=5&filters[commodity]=%s",
@@ -98,34 +102,33 @@ func getCropPrice(apiKey, commodity string) (string, error) {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", fmt.Errorf("failed to make request to data.gov.in: %w", err)
+		return "", fmt.Errorf("failed request to data.gov.in: %w", err)
 	}
 	defer resp.Body.Close()
 
-	var marketData MarketDataResponse
-	if err := json.NewDecoder(resp.Body).Decode(&marketData); err != nil {
-		return "", fmt.Errorf("failed to decode market data response: %w", err)
+	var data MarketDataResponse
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return "", fmt.Errorf("failed to decode market data: %w", err)
 	}
 
-	if len(marketData.Records) == 0 {
-		return fmt.Sprintf("Maaf kijiye, mujhe abhi '%s' ke liye koi taza bhav nahi mila.", commodity), nil
+	if len(data.Records) == 0 {
+		return fmt.Sprintf("Maaf kijiye, mujhe '%s' ke liye koi bhav nahi mila.", commodity), nil
 	}
 
-	var replyBuilder strings.Builder
-	replyBuilder.WriteString(fmt.Sprintf("'%s' के लिए कुछ ताज़ा भाव (प्रति क्विंटल):\n\n", commodity))
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("'%s' के ताज़ा भाव:\n\n", commodity))
 
-	for _, record := range marketData.Records {
-		replyBuilder.WriteString(fmt.Sprintf(
-			"• **मंडी:** %s, %s\n   **भाव:** ₹%s - ₹%s (आम भाव: ₹%s)\n\n",
-			record.Market, record.State, record.MinPrice, record.MaxPrice, record.ModalPrice,
+	for _, r := range data.Records {
+		b.WriteString(fmt.Sprintf("• **मंडी:** %s, %s\n   **भाव:** ₹%s - ₹%s (आम भाव: ₹%s)\n\n",
+			r.Market, r.State, r.MinPrice, r.MaxPrice, r.ModalPrice,
 		))
 	}
 
-	return replyBuilder.String(), nil
+	return b.String(), nil
 }
 
 func isPriceQuery(message string) (bool, string) {
-	lowerMsg := strings.ToLower(message)
+	l := strings.ToLower(message)
 
 	commodityMap := map[string]string{
 		"onion": "Onion", "pyaaz": "Onion", "pyaz": "Onion",
@@ -136,12 +139,12 @@ func isPriceQuery(message string) (bool, string) {
 		"paddy": "Paddy(Dhan)(Common)", "dhan": "Paddy(Dhan)(Common)",
 	}
 
-	priceKeywords := []string{"price", "rate", "bhav", "dam", "daam", "कीमत", "भाव", "दाम"}
+	keywords := []string{"price", "rate", "bhav", "dam", "daam", "कीमत", "भाव", "दाम"}
 
-	for _, keyword := range priceKeywords {
-		if strings.Contains(lowerMsg, keyword) {
+	for _, k := range keywords {
+		if strings.Contains(l, k) {
 			for local, api := range commodityMap {
-				if strings.Contains(lowerMsg, local) {
+				if strings.Contains(l, local) {
 					return true, api
 				}
 			}
@@ -152,115 +155,105 @@ func isPriceQuery(message string) (bool, string) {
 	return false, ""
 }
 
-// ----------------------------------------
-// API HANDLERS
-// ----------------------------------------
+// ------------------- Chat Handler -------------------
+
 func handleChat(w http.ResponseWriter, r *http.Request) {
 	var req ChatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+	json.NewDecoder(r.Body).Decode(&req)
 
-	log.Printf("Received ONLINE request: %s", req.Message)
+	log.Println("ONLINE request:", req.Message)
 
-	var finalReply string
+	var reply string
 
-	// Check if it's a price query
 	isPrice, commodity := isPriceQuery(req.Message)
 
 	if isPrice {
-		if commodity != "" {
-			dataGovApiKey := os.Getenv("DATA_GOV_API_KEY")
-			reply, err := getCropPrice(dataGovApiKey, commodity)
-			if err != nil {
-				finalReply = "Sorry, error fetching live prices."
-			} else {
-				finalReply = reply
-			}
+		api := os.Getenv("DATA_GOV_API_KEY")
+		res, err := getCropPrice(api, commodity)
+		if err != nil {
+			reply = "Sorry, error fetching live prices."
 		} else {
-			finalReply = "कृपया फसल का नाम बताएं ताकि मैं उसका भाव बता सकूं।"
+			reply = res
 		}
 
 	} else {
-		// Gemini Chat
 		ctx := context.Background()
+
+		// Support BOTH env variable names (Gemini SDK mismatch fix)
 		apiKey := os.Getenv("GEMINI_API_KEY")
+		if apiKey == "" {
+			apiKey = os.Getenv("GOOGLE_API_KEY")
+		}
+
+		log.Println("Gemini key length:", len(apiKey))
 
 		client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 		if err != nil {
-			http.Error(w, "Failed to create AI client", 500)
+			log.Println("Gemini client error:", err)
+			http.Error(w, "Failed to generate AI response", 500)
 			return
 		}
 		defer client.Close()
 
 		model := client.GenerativeModel("gemini-1.5-flash")
 
-		model.SystemInstruction = &genai.Content{Parts: []genai.Part{
-			genai.Text("You are KrishiMitr, a helpful Indian agriculture assistant..."),
-		}}
+		model.SystemInstruction = &genai.Content{
+			Parts: []genai.Part{
+				genai.Text("You are KrishiMitr, a helpful AI assistant for Indian farmers..."),
+			},
+		}
 
 		resp, err := model.GenerateContent(ctx, genai.Text(req.Message))
 		if err != nil {
+			log.Println("Gemini API error:", err)
 			http.Error(w, "Failed to generate AI response", 500)
 			return
 		}
 
-		if len(resp.Candidates) > 0 && len(resp.Candidates[0].Content.Parts) > 0 {
-			if textPart, ok := resp.Candidates[0].Content.Parts[0].(genai.Text); ok {
-				finalReply = string(textPart)
+		if len(resp.Candidates) > 0 {
+			if text, ok := resp.Candidates[0].Content.Parts[0].(genai.Text); ok {
+				reply = string(text)
 			}
 		}
 	}
 
-	if finalReply != "" && !strings.HasPrefix(finalReply, "Maaf kijiye") {
-		go saveConversation(req.Message, finalReply)
+	if reply != "" && !strings.HasPrefix(reply, "Maaf kijiye") {
+		go saveConversation(req.Message, reply)
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ChatResponse{Reply: finalReply})
+	json.NewEncoder(w).Encode(ChatResponse{Reply: reply})
 }
+
+// ------------------- Offline Chat -------------------
 
 func handleOfflineChat(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Only POST allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var req ChatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
+	json.NewDecoder(r.Body).Decode(&req)
 
-	log.Printf("Received OFFLINE request: %s", req.Message)
+	log.Println("OFFLINE request:", req.Message)
 
-	var storedResponse string
-	searchQuery := "%" + req.Message + "%"
-
+	var stored string
 	err := db.QueryRow(
 		"SELECT response FROM conversations WHERE query LIKE ? ORDER BY timestamp DESC LIMIT 1",
-		searchQuery,
-	).Scan(&storedResponse)
+		"%"+req.Message+"%",
+	).Scan(&stored)
 
-	var finalReply string
-
+	var reply string
 	if err == sql.ErrNoRows {
-		finalReply = "माफ़ कीजिए, इस सवाल का ऑफ़लाइन जवाब उपलब्ध नहीं है।"
+		reply = "माफ़ कीजिए, इस सवाल का ऑफ़लाइन जवाब उपलब्ध नहीं है।"
 	} else if err != nil {
-		log.Printf("DB error: %v", err)
-		finalReply = "Sorry, there was an error searching the offline database."
+		reply = "Sorry, database error."
 	} else {
-		finalReply = storedResponse + "\n\n*(यह जवाब ऑफ़लाइन कैश से दिया गया है।)*"
+		reply = stored + "\n\n*(यह जवाब ऑफ़लाइन कैश से दिया गया है।)*"
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(ChatResponse{Reply: finalReply})
+	json.NewEncoder(w).Encode(ChatResponse{Reply: reply})
 }
 
-func main() {
+// ------------------- MAIN -------------------
 
-	// Load .env ONLY for local development
+func main() {
+	// Load .env only on local machine
 	if os.Getenv("RENDER") == "" {
 		godotenv.Load()
 	}
@@ -269,17 +262,22 @@ func main() {
 	defer db.Close()
 
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("/api/chat", handleChat)
 	mux.HandleFunc("/api/chat-offline", handleOfflineChat)
 
+	// Useful for browser testing
+	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("pong"))
+	})
+
+	// Render port handling
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	fmt.Println("Backend server starting on port:", port)
+	log.Println("Backend running on port:", port)
 
-	if err := http.ListenAndServe(":"+port, corsMiddleware(mux)); err != nil {
-		log.Fatalf("Server failed: %v", err)
-	}
+	http.ListenAndServe(":"+port, corsMiddleware(mux))
 }
